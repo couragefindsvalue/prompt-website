@@ -1,69 +1,100 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function Home() {
+  const [prompts, setPrompts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    let query = supabase.from('prompts').select('*').order('created_at', { ascending: false });
+
+    if (search) {
+      // 模糊搜索：匹配中英文名称，或者中英文提示词
+      query = query.or(`name_zh.ilike.%${search}%,name_en.ilike.%${search}%,prompt_zh.ilike.%${search}%,prompt_en.ilike.%${search}%`);
+    }
+    if (category) {
+      query = query.eq('sub_category', category);
+    }
+
+    const { data, error } = await query;
+    if (!error) setPrompts(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, [search, category]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="max-w-6xl mx-auto p-8 font-sans">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">💄 提示词库</h1>
+        <Link href="/admin" className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 transition">
+          + 添加新提示词
+        </Link>
+      </div>
+
+      {/* 搜索与筛选栏 */}
+      <div className="flex gap-4 mb-8 bg-white p-4 rounded-xl shadow-sm border">
+        <input
+          type="text"
+          placeholder="搜索提示词、名称..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border p-2 rounded focus:outline-emerald-500"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.js
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="border p-2 rounded bg-white"
+        >
+          <option value="">所有分类</option>
+          <option value="serum">Serum / 精华</option>
+          <option value="cream">Cream / 面霜</option>
+          <option value="lipstick">Lipstick / 口红</option>
+          <option value="perfume">Perfume / 香水</option>
+          <option value="makeup">Makeup / 彩妆</option>
+        </select>
+      </div>
+
+      {/* 结果展示 */}
+      {loading ? (
+        <p className="text-center text-gray-500">加载中...</p>
+      ) : prompts.length === 0 ? (
+        <p className="text-center text-gray-500 py-10">没有找到相关提示词</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {prompts.map((item) => (
+            <div key={item.id} className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition">
+              <img src={item.image_url} alt={item.name_zh} className="w-full h-64 object-cover bg-gray-100" />
+              <div className="p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h2 className="font-bold text-lg text-gray-800">{item.name_zh}</h2>
+                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">{item.sub_category}</span>
+                </div>
+                <p className="text-sm text-gray-600 line-clamp-2 mb-3">{item.prompt_zh}</p>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500">评分: {'⭐'.repeat(item.score || 0)}</span>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(item.prompt_zh)}
+                    className="text-emerald-600 hover:underline"
+                  >
+                    复制提示词
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
