@@ -19,6 +19,20 @@
   }
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 强制使用支持中文的字体栈 */
+@layer base {
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, "Noto Sans", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Micro Hei",
+                 sans-serif;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
